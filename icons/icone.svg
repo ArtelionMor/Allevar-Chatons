@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Donjon & Chaton">
+  <rect width="512" height="512" rx="96" fill="#7b4b2a"/>
+  <g fill="#fdf6e8">
+    <path d="M150 190 L150 120 L205 165 A110 110 0 0 1 307 165 L362 120 L362 190 A130 130 0 1 1 150 190 Z"/>
+  </g>
+  <g fill="#7b4b2a">
+    <circle cx="212" cy="270" r="17"/>
+    <circle cx="300" cy="270" r="17"/>
+    <path d="M256 305 l-16 16 a16 16 0 0 0 32 0 Z"/>
+  </g>
+  <g stroke="#7b4b2a" stroke-width="9" stroke-linecap="round">
+    <path d="M150 320 H105 M150 345 H110"/>
+    <path d="M362 320 H407 M362 345 H402"/>
+  </g>
+</svg>
