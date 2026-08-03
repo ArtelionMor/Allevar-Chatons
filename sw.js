@@ -1,7 +1,7 @@
 /* Donjon & Chaton — service worker : l’app fonctionne entièrement hors-ligne.
    Pense à incrémenter CACHE à chaque modification des fichiers listés. */
 
-const CACHE = 'donjon-chaton-v2';
+const CACHE = 'donjon-chaton-v3';
 
 /* Uniquement la coquille de l'application : quelques dizaines de Ko.
    Les images de jeu ne sont PAS ici — elles vivent en IndexedDB (voir js/images.js),
@@ -16,6 +16,10 @@ const FICHIERS = [
   './js/images.js',
   './manifest.webmanifest',
   './icons/icone.svg',
+  './icons/icone-192.png',
+  './icons/icone-512.png',
+  './icons/icone-masquable-192.png',
+  './icons/icone-masquable-512.png',
 ];
 
 self.addEventListener('install', (e) => {
