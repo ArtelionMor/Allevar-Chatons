@@ -66,7 +66,25 @@ Ici les images sont **tes données** :
 5. elles partent dans l'export `.json` (en base64), donc une sauvegarde restaure
    fiches **et** images sur un autre appareil.
 
-Le service worker ne garde que la coquille : 6 fichiers, quelques dizaines de Ko.
+Le service worker ne garde que la coquille : 13 fichiers, quelques dizaines de Ko.
+
+### Garantir le démarrage hors connexion
+
+L'app doit démarrer en mode avion, toujours. Trois mécanismes dans `sw.js` :
+
+1. **Pré-cache fichier par fichier**, jamais `cache.addAll()` qui est
+   tout-ou-rien : un seul échec et le mode hors-ligne entier tombe (constaté
+   en production). Les requêtes utilisent `cache: 'reload'` pour contourner le
+   cache HTTP du navigateur, qui peut détenir un 404 d'avant le déploiement.
+2. **Vérification à chaque lancement** : la page envoie `verifier-cache` au
+   service worker, qui recense les manques et les rattrape s'il y a du réseau.
+   L'écran d'accueil affiche l'état réel — une réserve incomplète se découvre
+   au chaud, pas en partie.
+3. **Toute navigation retombe sur la page en cache**, `ignoreSearch` compris :
+   même avec un paramètre d'URL inattendu, pas de page blanche possible.
+
+La persistance du stockage est demandée dès le démarrage : elle protège
+l'IndexedDB *et* le cache de la coquille.
 
 Pour que le stockage soit durable sur iOS, installer l'app sur l'écran d'accueil
 plutôt que de la laisser dans un onglet Safari.
