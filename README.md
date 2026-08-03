@@ -73,10 +73,27 @@ plutôt que de la laisser dans un onglet Safari.
 
 ## Mise en ligne
 
-Le dossier `app/` est entièrement statique : il peut être publié tel quel
-(GitHub Pages par exemple). **Après chaque modification d'un fichier, incrémenter
-`CACHE` dans `sw.js`** pour que les appareils déjà installés récupèrent la
-nouvelle version.
+En ligne ici : **https://artelionmor.github.io/Allevar-Chatons/**
+
+Ce dossier est la racine du dépôt `ArtelionMor/Allevar-Chatons`, publié par
+GitHub Pages depuis la branche `main`. Déployer = pousser :
+
+```bash
+git push
+```
+
+Le site est reconstruit en une à deux minutes.
+
+**À chaque modification d'un fichier de la coquille, incrémenter `CACHE` dans
+`sw.js`.** Sans ça, les appareils qui ont déjà installé l'app continuent
+d'afficher l'ancienne version depuis leur cache.
+
+### Installer sur le téléphone
+
+Ouvrir l'URL **dans Safari** (iOS ne laisse que Safari installer une PWA),
+bouton Partager → *Sur l'écran d'accueil*. C'est cette étape qui rend le
+stockage durable : dans un simple onglet, iOS s'autorise à faire le ménage
+dans les données au bout de quelques jours d'inactivité.
 
 ## À venir
 
