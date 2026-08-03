@@ -1,7 +1,7 @@
 /* Donjon & Chaton — service worker : l’app fonctionne entièrement hors-ligne.
    Pense à incrémenter CACHE à chaque modification des fichiers listés. */
 
-const CACHE = 'donjon-chaton-v3';
+const CACHE = 'donjon-chaton-v4';
 
 /* Uniquement la coquille de l'application : quelques dizaines de Ko.
    Les images de jeu ne sont PAS ici — elles vivent en IndexedDB (voir js/images.js),
@@ -22,9 +22,18 @@ const FICHIERS = [
   './icons/icone-masquable-512.png',
 ];
 
+/* Un fichier à la fois, et non cache.addAll() : celui-ci est tout-ou-rien, si
+   une seule réponse échoue le mode hors-ligne entier tombe. `cache: 'reload'`
+   court-circuite le cache HTTP du navigateur, qui peut encore détenir une
+   ancienne réponse (GitHub Pages sert avec max-age=600). */
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(FICHIERS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((cache) =>
+      Promise.all(FICHIERS.map((f) =>
+        cache.add(new Request(f, { cache: 'reload' }))
+          .catch((err) => console.warn('Pré-cache impossible :', f, err))
+      ))
+    ).then(() => self.skipWaiting())
   );
 });
 
