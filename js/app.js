@@ -8,6 +8,10 @@ import * as Images from './images.js';
 
 const app = document.getElementById('app');
 
+/* En local le service worker est désactivé : son cache masquerait les
+   modifications en cours de développement. */
+const enLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+
 /* ------------------------------------------------------------------ */
 /* Utilitaires                                                         */
 /* ------------------------------------------------------------------ */
@@ -110,6 +114,7 @@ function vueListe() {
         Tout est stocké sur cet appareil, images comprises. Exporte de temps en temps
         pour ne rien perdre.
       </p>
+      <p class="aide etat" id="etat-hors-ligne"></p>
       <p class="aide" id="espace-disque"></p>
       <div class="rangee-boutons">
         <button class="btn" data-action="exporter">Exporter (.json)</button>
@@ -118,25 +123,72 @@ function vueListe() {
       <input type="file" id="fichier-import" accept="application/json,.json" hidden>
     </section>
   `;
+  afficherEtatHorsLigne();
   afficherEspace();
+}
+
+/* --- Mode hors connexion : état visible, vérifié à chaque lancement --- */
+
+let etatHorsLigne = null;   // { total, manquants } renvoyé par le service worker
+
+function afficherEtatHorsLigne() {
+  const cible = $('#etat-hors-ligne');
+  if (!cible) return;
+
+  if (enLocal || !('serviceWorker' in navigator)) {
+    cible.textContent = 'Mode développement : hors connexion désactivé en local.';
+    return;
+  }
+  if (!etatHorsLigne) {
+    cible.textContent = 'Vérification du mode hors connexion…';
+    return;
+  }
+  if (etatHorsLigne.manquants.length === 0) {
+    cible.classList.add('etat-ok');
+    cible.classList.remove('etat-alerte');
+    cible.textContent = `Prêt hors connexion — ${etatHorsLigne.total} fichiers en réserve sur l’appareil.`;
+  } else {
+    cible.classList.add('etat-alerte');
+    cible.classList.remove('etat-ok');
+    cible.textContent = navigator.onLine
+      ? `Mise en réserve incomplète (${etatHorsLigne.manquants.length} fichier(s)). Nouvelle tentative au prochain lancement.`
+      : `Mise en réserve incomplète (${etatHorsLigne.manquants.length} fichier(s)). Reconnecte-toi et rouvre l’application.`;
+  }
+}
+
+/** Interroge le service worker : ce qui manque est rattrapé s'il y a du réseau. */
+function surveillerHorsLigne() {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'etat-cache') {
+      etatHorsLigne = e.data;
+      afficherEtatHorsLigne();
+    }
+  });
+  navigator.serviceWorker.ready.then((reg) => {
+    const demander = () => reg.active && reg.active.postMessage({ type: 'verifier-cache' });
+    demander();
+    window.addEventListener('online', demander);
+  });
 }
 
 /** Affiche l'espace occupé et si le stockage est protégé de l'effacement. */
 function afficherEspace() {
   const cible = $('#espace-disque');
   if (!cible) return;
-  Promise.all([Images.estimerEspace(), Images.lister()]).then(([espace, images]) => {
-    if (!$('#espace-disque')) return;
-    const bouts = [];
-    if (images.length) {
-      const poids = images.reduce((somme, i) => somme + (i.taille || 0), 0);
-      bouts.push(`${images.length} image${images.length > 1 ? 's' : ''} (${Images.formaterOctets(poids)})`);
-    }
-    if (espace && espace.quota) {
-      bouts.push(`${Images.formaterOctets(espace.utilise)} utilisés sur ${Images.formaterOctets(espace.quota)} disponibles`);
-    }
-    $('#espace-disque').textContent = bouts.join(' · ');
-  });
+  Promise.all([Images.estimerEspace(), Images.lister(), Images.persistanceAccordee()])
+    .then(([espace, images, protege]) => {
+      if (!$('#espace-disque')) return;
+      const bouts = [];
+      if (images.length) {
+        const poids = images.reduce((somme, i) => somme + (i.taille || 0), 0);
+        bouts.push(`${images.length} image${images.length > 1 ? 's' : ''} (${Images.formaterOctets(poids)})`);
+      }
+      if (espace && espace.quota) {
+        bouts.push(`${Images.formaterOctets(espace.utilise)} sur ${Images.formaterOctets(espace.quota)} disponibles`);
+      }
+      if (protege === true) bouts.push('stockage protégé de l’effacement');
+      $('#espace-disque').textContent = bouts.join(' · ');
+    });
 }
 
 function carteChaton(c) {
@@ -907,15 +959,18 @@ function importerDansGalerie(fichiers) {
 /* ------------------------------------------------------------------ */
 
 Store.charger();
+
+/* Demandé dès le départ, et pas seulement au premier import d'image : la
+   permission protège aussi le cache de la coquille, donc le démarrage
+   hors connexion. */
+Images.demanderPersistance();
+
 window.addEventListener('hashchange', router);
 router();
 
-/* Mode hors-ligne. Désactivé en local (localhost) : le cache y masquerait
-   les modifications en cours de développement. */
-const enLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
 if ('serviceWorker' in navigator && !enLocal) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(surveillerHorsLigne).catch(() => {});
   });
 } else if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));

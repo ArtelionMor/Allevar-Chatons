@@ -48,6 +48,12 @@ export function demanderPersistance() {
     .catch(() => false);
 }
 
+/** true si le navigateur s'est engagé à ne pas effacer nos données. */
+export function persistanceAccordee() {
+  if (!navigator.storage || !navigator.storage.persisted) return Promise.resolve(null);
+  return navigator.storage.persisted().catch(() => null);
+}
+
 /** { utilise, quota } en octets, ou null si le navigateur ne le dit pas. */
 export function estimerEspace() {
   if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve(null);

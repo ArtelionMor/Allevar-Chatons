@@ -226,6 +226,14 @@ body {
 
 .aide { margin: -4px 0 12px; font-size: .82rem; color: var(--encre-douce); }
 
+.etat { margin: 0 0 6px; padding-left: 18px; position: relative; }
+.etat::before { position: absolute; left: 0; }
+.etat-ok { color: #3f7d4e; }
+.etat-ok::before { content: "●"; }
+.etat-alerte { color: var(--danger); font-weight: 600; }
+.etat-alerte::before { content: "▲"; font-size: .7em; top: .15em; }
+@media (prefers-color-scheme: dark) { .etat-ok { color: #7bbd8a; } }
+
 /* --- Portrait --- */
 
 .portrait {
