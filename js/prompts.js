@@ -407,6 +407,7 @@ export const AXES = [
       { id: 'sorcier', nom: 'Sorcier', fragment: 'in ragged robes hung with charms, feathers and little bones, holding a gnarled wooden staff' },
       { id: 'mage-combattant', nom: 'Mage Combattant', fragment: 'in light chainmail worn over a mage’s robe, a sword in one hand and glowing runes in the other' },
       { id: 'artificier', nom: 'Artificier', fragment: 'in a leather apron and brass goggles, pockets full of tools and cogs, holding a clockwork gadget' },
+      { id: 'alchimiste', nom: 'Alchimiste', fragment: 'in a robe stained with spilled reagents, a bandolier of bubbling coloured flasks and a small copper alembic at the hip' },
       { id: 'guerisseur', nom: 'Guérisseur', fragment: 'in soft linen robes with a satchel of herbs, bandages and little glass bottles' },
       { id: 'marchand', nom: 'Marchand', fragment: 'in a bright travelling coat with an enormous backpack of wares, a coin purse and small brass scales' },
     ],
