@@ -5,6 +5,8 @@ import {
 } from './data.js';
 import * as Store from './store.js';
 import * as Images from './images.js';
+import * as Bibliotheque from './bibliotheque.js';
+import * as Prompts from './prompts.js';
 
 const app = document.getElementById('app');
 
@@ -52,6 +54,16 @@ function peindreImages(racine = app) {
 
 let chatonCourant = null;
 let filtreGalerie = 'tout';
+let bibliotheque = [];            // métadonnées des images, source unique de l'app
+let choixPortrait = {};           // générateur de prompt
+
+function rafraichirBibliotheque() {
+  return Images.lister().then((liste) => { bibliotheque = liste; return liste; });
+}
+
+function imageMeta(id) {
+  return bibliotheque.find((i) => i.id === id) || null;
+}
 
 function router() {
   const h = location.hash.replace(/^#\/?/, '');
@@ -66,10 +78,13 @@ function router() {
     vueImpression(chatonCourant);
   } else if (vue === 'galerie') {
     chatonCourant = null;
-    vueGalerie();
-  } else if (vue === 'montrer' && Store.galerieGet(id)) {
+    rafraichirBibliotheque().then(vueGalerie);
+  } else if (vue === 'montrer') {
     chatonCourant = null;
-    vueVisionneuse(id);
+    rafraichirBibliotheque().then(() => vueVisionneuse(id));
+  } else if (vue === 'portraits') {
+    chatonCourant = null;
+    vuePortraits();
   } else {
     chatonCourant = null;
     vueListe();
@@ -80,7 +95,11 @@ function router() {
 function onglets(actif) {
   const lien = (href, cle, texte) =>
     `<a class="onglet ${actif === cle ? 'actif' : ''}" href="${href}">${texte}</a>`;
-  return `<nav class="onglets">${lien('#/', 'fiches', 'Fiches')}${lien('#/galerie', 'galerie', 'Galerie')}</nav>`;
+  return `<nav class="onglets">
+    ${lien('#/', 'fiches', 'Fiches')}
+    ${lien('#/galerie', 'galerie', 'Galerie')}
+    ${lien('#/portraits', 'portraits', 'Portraits')}
+  </nav>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -258,7 +277,7 @@ function sectionIdentite(c) {
       <div id="sec-portrait">${sectionPortrait(c)}</div>
       ${champ('Nom du Chaton', 'nom', c.nom, { placeholder: 'Moustache de Velours…' })}
       ${champ('Joueuse / Joueur', 'joueuse', c.joueuse)}
-      ${champ('Enfance', 'enfance', c.enfance, { multi: true, placeholder: 'Où et comment a-t-il grandi ?' })}
+      ${champ('Histoire', 'enfance', c.enfance, { multi: true, placeholder: 'D’où vient-il, ce qu’il a vécu…' })}
       ${champ('Caractère', 'caractere', c.caractere, { multi: true, placeholder: 'Curieux, grognon, trouillard…' })}
       ${champ('Don de naissance', 'donNaissance', c.donNaissance, { multi: true })}
     </section>
@@ -271,56 +290,154 @@ function sectionPortrait(c) {
       ${c.portraitId
         ? `<img data-image="${esc(c.portraitId)}" alt="Portrait de ${esc(c.nom || 'ce chaton')}">
            <div class="portrait-actions">
-             <button type="button" class="btn-icone" data-action="choisir-portrait" title="Remplacer">↺</button>
+             <button type="button" class="btn-icone" data-action="illustrer" data-cible="portrait" title="Changer">✎</button>
              <button type="button" class="btn-icone danger" data-action="retirer-portrait" title="Retirer">✕</button>
            </div>`
-        : `<button type="button" class="portrait-ajout" data-action="choisir-portrait">
+        : `<button type="button" class="portrait-ajout" data-action="illustrer" data-cible="portrait">
              <span class="portrait-icone">🐾</span>
              <span>Ajouter un portrait</span>
            </button>`}
     </div>
-    <input type="file" id="fichier-portrait" accept="image/*" hidden>
   `;
+}
+
+/* --- Lien entre une cible illustrable et son image --- */
+
+function imageDe(c, cible, cle, index) {
+  switch (cible) {
+    case 'portrait': return c.portraitId || null;
+    case 'talent': return c.imagesTalents[cle] || null;
+    case 'talent-custom': return (c.talentsCustom[index] || {}).imageId || null;
+    case 'qualite': return c.imagesQualites[cle] || null;
+    case 'qualite-custom': return (c.qualitesCustom[index] || {}).imageId || null;
+    default: return null;
+  }
+}
+
+function definirImage(c, cible, cle, index, imageId) {
+  switch (cible) {
+    case 'portrait': c.portraitId = imageId; break;
+    case 'talent':
+      if (imageId) c.imagesTalents[cle] = imageId;
+      else delete c.imagesTalents[cle];
+      break;
+    case 'talent-custom':
+      if (c.talentsCustom[index]) c.talentsCustom[index].imageId = imageId;
+      break;
+    case 'qualite':
+      if (imageId) c.imagesQualites[cle] = imageId;
+      else delete c.imagesQualites[cle];
+      break;
+    case 'qualite-custom':
+      if (c.qualitesCustom[index]) c.qualitesCustom[index].imageId = imageId;
+      break;
+  }
+}
+
+/** Quelle section redessiner après avoir changé une image. */
+function sectionDe(cible) {
+  if (cible === 'portrait') return 'portrait';
+  return cible.startsWith('qualite') ? 'qualites' : 'talents';
 }
 
 /* --- Qualités --- */
 
 function sectionQualites(c) {
+  const lignes = [
+    ...QUALITES.map((q) => ligneQualite(q.nom, c.qualites[q.id] || 0, `qualites.${q.id}`, {
+      imageId: c.imagesQualites[q.id] || null,
+      cible: 'qualite', cle: q.id,
+    })),
+    ...c.qualitesCustom.map((q, i) => ligneQualite(q.nom, q.valeur || 0, `qualitesCustom.${i}.valeur`, {
+      nomChemin: `qualitesCustom.${i}.nom`, index: i,
+      imageId: q.imageId || null,
+      cible: 'qualite-custom',
+    })),
+  ];
   return `
     <section class="bloc">
       <h2>Qualités</h2>
       <p class="aide">Score de 0 à ${QUALITE_MAX}. On lance 3d6 : chaque dé ≤ au score est un succès.</p>
-      <ul class="qualites">
-        ${QUALITES.map((q) => ligneQualite(q.nom, c.qualites[q.id] || 0, `qualites.${q.id}`)).join('')}
-        ${c.qualitesCustom.map((q, i) => ligneQualite(q.nom, q.valeur || 0, `qualitesCustom.${i}.valeur`, {
-          nomChemin: `qualitesCustom.${i}.nom`, index: i,
-        })).join('')}
-      </ul>
+      <ul class="qualites">${lignes.join('')}</ul>
       <button class="btn btn-ajout" data-action="ajouter-qualite">+ Qualité personnalisée</button>
     </section>
   `;
 }
 
+/** Une qualité illustrée devient une carte ; sans image, elle reste une ligne. */
 function ligneQualite(nom, valeur, chemin, opts = {}) {
   const editable = !!opts.nomChemin;
+  const illustree = !!opts.imageId;
+  const illustrable = !!opts.cible;
+
+  const titre = editable
+    ? `<input class="qualite-nom modifiable" type="text" data-champ="${opts.nomChemin}" value="${esc(nom)}" placeholder="Nom de la qualité">`
+    : `<span class="qualite-nom">${esc(nom)}</span>`;
+
+  const stepper = `
+    <span class="stepper">
+      <button type="button" class="btn-step" data-action="qualite-moins" data-chemin="${chemin}" aria-label="Diminuer">−</button>
+      <span class="stepper-valeur" data-valeur="${chemin}">${valeur}</span>
+      <button type="button" class="btn-step" data-action="qualite-plus" data-chemin="${chemin}" aria-label="Augmenter">+</button>
+    </span>`;
+
+  const retirer = editable
+    ? `<button type="button" class="btn-icone danger" data-action="retirer-qualite" data-index="${opts.index}" title="Retirer">✕</button>`
+    : '';
+
+  if (!illustree) {
+    return `
+      <li class="qualite">
+        ${titre}
+        ${illustrable ? boutonIllustrer(opts) : ''}
+        ${stepper}
+        ${retirer}
+      </li>`;
+  }
+
   return `
-    <li class="qualite">
-      ${editable
-        ? `<input class="qualite-nom modifiable" type="text" data-champ="${opts.nomChemin}" value="${esc(nom)}" placeholder="Nom de la qualité">`
-        : `<span class="qualite-nom">${esc(nom)}</span>`}
-      <span class="stepper">
-        <button type="button" class="btn-step" data-action="qualite-moins" data-chemin="${chemin}" aria-label="Diminuer">−</button>
-        <span class="stepper-valeur" data-valeur="${chemin}">${valeur}</span>
-        <button type="button" class="btn-step" data-action="qualite-plus" data-chemin="${chemin}" aria-label="Augmenter">+</button>
-      </span>
-      ${editable ? `<button type="button" class="btn-icone danger" data-action="retirer-qualite" data-index="${opts.index}" title="Retirer">✕</button>` : ''}
-    </li>
-  `;
+    <li class="qualite qualite-illustree">
+      <button type="button" class="illustration" data-action="montrer" data-id="${esc(opts.imageId)}" title="Montrer en grand">
+        <img data-image="${esc(opts.imageId)}" alt="">
+      </button>
+      <div class="qualite-corps">
+        <div class="qualite-haut">${titre}${retirer}</div>
+        <div class="qualite-bas">${stepper}${boutonIllustrer(opts, true)}</div>
+      </div>
+    </li>`;
+}
+
+/** Bouton d'attache d'image, discret tant qu'il n'y a rien à montrer. */
+function boutonIllustrer(opts, remplacer = false) {
+  const index = opts.index === undefined ? '' : ` data-index="${opts.index}"`;
+  const cle = opts.cle === undefined ? '' : ` data-cle="${esc(opts.cle)}"`;
+  return `<button type="button" class="btn-illustrer${remplacer ? ' discret' : ''}"
+    data-action="illustrer" data-cible="${esc(opts.cible)}"${cle}${index}
+    title="${remplacer ? 'Changer l’image' : 'Illustrer'}">${remplacer ? '✎' : '＋'}</button>`;
 }
 
 /* --- Talents --- */
 
 function sectionTalents(c) {
+  const standard = [...TALENTS_GAUCHE, ...TALENTS_DROITE];
+
+  /* Les talents illustrés remontent en tête, en grand : c'est ce qu'on montre
+     aux enfants. Sans image, la liste compacte d'origine ne bouge pas. */
+  const illustres = [
+    ...standard
+      .filter((t) => c.imagesTalents[t])
+      .map((t) => ({ nom: t, imageId: c.imagesTalents[t], coche: !!c.talents[t], cible: 'talent', cle: t })),
+    ...c.talentsCustom
+      .map((t, i) => ({ nom: t.nom, imageId: t.imageId, coche: !!t.coche, cible: 'talent-custom', index: i }))
+      .filter((t) => t.imageId),
+  ];
+
+  const restants = standard.filter((t) => !c.imagesTalents[t]);
+  const milieu = Math.ceil(restants.length / 2);
+  const customRestants = c.talentsCustom
+    .map((t, i) => ({ ...t, index: i }))
+    .filter((t) => !t.imageId);
+
   const colonne = (liste) => `
     <ul class="talents">
       ${liste.map((t) => `
@@ -329,28 +446,53 @@ function sectionTalents(c) {
             <input type="checkbox" data-talent="${esc(t)}" ${c.talents[t] ? 'checked' : ''}>
             <span>${esc(t)}</span>
           </label>
+          ${boutonIllustrer({ cible: 'talent', cle: t })}
         </li>`).join('')}
     </ul>`;
+
+  const carte = (t) => `
+    <li class="carte-talent ${t.coche ? 'coche' : ''}">
+      <button type="button" class="illustration" data-action="montrer" data-id="${esc(t.imageId)}" title="Montrer en grand">
+        <img data-image="${esc(t.imageId)}" alt="">
+      </button>
+      <div class="carte-talent-bas">
+        <label class="case">
+          <input type="checkbox"
+            ${t.cible === 'talent'
+              ? `data-talent="${esc(t.cle)}"`
+              : `data-champ-case="talentsCustom.${t.index}.coche"`}
+            ${t.coche ? 'checked' : ''}>
+          ${t.cible === 'talent'
+            ? `<span>${esc(t.nom)}</span>`
+            : `<input class="modifiable" type="text" data-champ="talentsCustom.${t.index}.nom" value="${esc(t.nom)}" placeholder="Nouveau talent">`}
+        </label>
+        ${boutonIllustrer(t, true)}
+      </div>
+    </li>`;
 
   return `
     <section class="bloc">
       <h2>Talents</h2>
       <p class="aide">Un talent adapté donne un Avantage (4d6).</p>
+
+      ${illustres.length ? `<ul class="grille grille-talents">${illustres.map(carte).join('')}</ul>` : ''}
+
       <div class="talents-colonnes">
-        ${colonne(TALENTS_GAUCHE)}
-        ${colonne(TALENTS_DROITE)}
+        ${colonne(restants.slice(0, milieu))}
+        ${colonne(restants.slice(milieu))}
       </div>
 
-      ${c.talentsCustom.length ? `
+      ${customRestants.length ? `
         <h3>Talents personnalisés</h3>
         <ul class="talents talents-perso">
-          ${c.talentsCustom.map((t, i) => `
+          ${customRestants.map((t) => `
             <li>
               <label class="case">
-                <input type="checkbox" data-champ-case="talentsCustom.${i}.coche" ${t.coche ? 'checked' : ''}>
+                <input type="checkbox" data-champ-case="talentsCustom.${t.index}.coche" ${t.coche ? 'checked' : ''}>
               </label>
-              <input class="modifiable" type="text" data-champ="talentsCustom.${i}.nom" value="${esc(t.nom)}" placeholder="Nouveau talent">
-              <button type="button" class="btn-icone danger" data-action="retirer-talent" data-index="${i}" title="Retirer">✕</button>
+              <input class="modifiable" type="text" data-champ="talentsCustom.${t.index}.nom" value="${esc(t.nom)}" placeholder="Nouveau talent">
+              ${boutonIllustrer({ cible: 'talent-custom', index: t.index })}
+              <button type="button" class="btn-icone danger" data-action="retirer-talent" data-index="${t.index}" title="Retirer">✕</button>
             </li>`).join('')}
         </ul>` : ''}
 
@@ -463,13 +605,14 @@ function sectionRegles() {
 /* Vue : galerie (ce qu'on montre aux enfants pendant la partie)       */
 /* ------------------------------------------------------------------ */
 
-function entreesFiltrees() {
-  const tous = Store.galerieTous();
-  return filtreGalerie === 'tout' ? tous : tous.filter((e) => e.categorie === filtreGalerie);
+function imagesFiltrees() {
+  return filtreGalerie === 'tout'
+    ? bibliotheque
+    : bibliotheque.filter((i) => (i.categorie || 'monstre') === filtreGalerie);
 }
 
 function vueGalerie() {
-  const entrees = entreesFiltrees();
+  const images = imagesFiltrees();
   app.innerHTML = `
     <header class="barre">
       <h1 class="titre-app">Galerie</h1>
@@ -482,34 +625,32 @@ function vueGalerie() {
       ${['tout', ...Store.CATEGORIES.map((c) => c.id)].map((id) => {
         const nom = id === 'tout' ? 'Tout' : Store.CATEGORIES.find((c) => c.id === id).nom;
         const n = id === 'tout'
-          ? Store.galerieTous().length
-          : Store.galerieTous().filter((e) => e.categorie === id).length;
+          ? bibliotheque.length
+          : bibliotheque.filter((i) => (i.categorie || 'monstre') === id).length;
         return `<button class="puce ${filtreGalerie === id ? 'actif' : ''}" data-action="filtrer" data-filtre="${id}">${nom}${n ? ` <span class="puce-n">${n}</span>` : ''}</button>`;
       }).join('')}
     </div>
 
-    ${entrees.length === 0 ? `
+    ${images.length === 0 ? `
       <p class="vide">
-        ${Store.galerieTous().length === 0
-          ? 'Rien dans la galerie.<br>Ajoute les images préparées pour ta partie&nbsp;: elles resteront disponibles sans connexion.'
+        ${bibliotheque.length === 0
+          ? 'La bibliothèque est vide.<br>Ajoute les images préparées pour ta partie&nbsp;: elles resteront disponibles sans connexion, et réutilisables sur les talents et les qualités.'
           : 'Rien dans cette catégorie.'}
       </p>
     ` : `
       <ul class="grille">
-        ${entrees.map((e) => `
-          <li class="vignette" data-entree="${e.id}">
-            <button type="button" class="vignette-image" data-action="montrer" data-id="${e.id}">
-              ${e.imageId
-                ? `<img data-image="${esc(e.imageId)}" alt="${esc(e.nom || 'Image')}">`
-                : '<span class="vignette-absente">image manquante</span>'}
+        ${images.map((im) => `
+          <li class="vignette">
+            <button type="button" class="vignette-image" data-action="montrer" data-id="${esc(im.id)}">
+              <img data-image="${esc(im.id)}" alt="${esc(im.nom || 'Image')}">
             </button>
             <div class="vignette-infos">
-              <input class="modifiable" type="text" data-galerie="${e.id}.nom" value="${esc(e.nom)}" placeholder="Nom">
+              <input class="modifiable" type="text" data-image-meta="${esc(im.id)}.nom" value="${esc(im.nom)}" placeholder="Nom">
               <div class="vignette-bas">
-                <select data-galerie="${e.id}.categorie">
-                  ${Store.CATEGORIES.map((c) => `<option value="${c.id}" ${e.categorie === c.id ? 'selected' : ''}>${c.nom}</option>`).join('')}
+                <select data-image-meta="${esc(im.id)}.categorie">
+                  ${Store.CATEGORIES.map((c) => `<option value="${c.id}" ${(im.categorie || 'monstre') === c.id ? 'selected' : ''}>${c.nom}</option>`).join('')}
                 </select>
-                <button type="button" class="btn-icone danger" data-action="supprimer-entree" data-id="${e.id}" title="Supprimer">✕</button>
+                <button type="button" class="btn-icone danger" data-action="supprimer-image" data-id="${esc(im.id)}" title="Supprimer">✕</button>
               </div>
             </div>
           </li>`).join('')}
@@ -526,9 +667,12 @@ function vueGalerie() {
 }
 
 function vueVisionneuse(id) {
-  const liste = entreesFiltrees();
-  const i = liste.findIndex((e) => e.id === id);
-  const entree = liste[i] || Store.galerieGet(id);
+  const liste = imagesFiltrees();
+  const i = liste.findIndex((im) => im.id === id);
+  const image = liste[i] || imageMeta(id);
+
+  if (!image) { aller('#/galerie'); return; }
+
   const precedent = i > 0 ? liste[i - 1] : null;
   const suivant = i >= 0 && i < liste.length - 1 ? liste[i + 1] : null;
 
@@ -537,13 +681,67 @@ function vueVisionneuse(id) {
       <button class="visionneuse-fermer" data-action="fermer-visionneuse" aria-label="Fermer">✕</button>
       ${precedent ? `<a class="visionneuse-nav gauche" href="#/montrer/${precedent.id}" aria-label="Précédent">‹</a>` : ''}
       ${suivant ? `<a class="visionneuse-nav droite" href="#/montrer/${suivant.id}" aria-label="Suivant">›</a>` : ''}
-      ${entree.imageId
-        ? `<img data-image="${esc(entree.imageId)}" alt="${esc(entree.nom || 'Image')}">`
-        : '<p class="vide">Image manquante.</p>'}
-      ${entree.nom ? `<p class="visionneuse-nom">${esc(entree.nom)}</p>` : ''}
+      <img data-image="${esc(image.id)}" alt="${esc(image.nom || 'Image')}">
+      ${image.nom ? `<p class="visionneuse-nom">${esc(image.nom)}</p>` : ''}
     </div>
   `;
   peindreImages();
+}
+
+/* ------------------------------------------------------------------ */
+/* Vue : portraits (générateur de prompt Midjourney)                   */
+/* ------------------------------------------------------------------ */
+
+function vuePortraits() {
+  const prompt = Prompts.composer(choixPortrait);
+  app.innerHTML = `
+    <header class="barre">
+      <h1 class="titre-app">Portraits</h1>
+      <button class="btn" data-action="portrait-hasard">Au hasard</button>
+    </header>
+
+    ${onglets('portraits')}
+
+    <p class="aide">
+      Fais choisir l’enfant, puis copie le prompt dans Midjourney.
+      L’image obtenue s’ajoute à la bibliothèque par l’onglet Galerie.
+    </p>
+
+    ${Prompts.AXES.map((axe) => `
+      <section class="bloc bloc-axe">
+        <h2>${esc(axe.nom)}</h2>
+        ${axe.aide ? `<p class="aide">${esc(axe.aide)}</p>` : ''}
+        <div class="filtres">
+          ${axe.options.map((o) => `
+            <button type="button" class="puce ${choixPortrait[axe.id] === o.id ? 'actif' : ''}"
+                    data-action="portrait-choix" data-axe="${esc(axe.id)}" data-option="${esc(o.id)}">
+              ${esc(o.nom)}
+            </button>`).join('')}
+        </div>
+      </section>`).join('')}
+
+    <section class="bloc">
+      <h2>Dosage du style</h2>
+      <p class="aide">À quel point le tableau déteint sur l’illustration.</p>
+      <div class="filtres">
+        ${Prompts.DOSAGES.map((d) => `
+          <button type="button" class="puce ${(choixPortrait.dosage || Prompts.DOSAGE_DEFAUT) === d.id ? 'actif' : ''}"
+                  data-action="portrait-dosage" data-dosage="${esc(d.id)}">${esc(d.nom)}</button>`).join('')}
+      </div>
+    </section>
+
+    <section class="bloc">
+      <h2>Prompt</h2>
+      ${prompt ? `
+        <p class="prompt" id="prompt-resultat">${esc(prompt)}</p>
+        <div class="rangee-boutons">
+          <button class="btn btn-principal" data-action="copier-prompt">Copier</button>
+          <button class="btn" data-action="portrait-effacer">Effacer les choix</button>
+        </div>
+        <p class="aide" id="prompt-retour"></p>
+      ` : '<p class="vide-mini">Choisis au moins un élément ci-dessus.</p>'}
+    </section>
+  `;
 }
 
 /* ------------------------------------------------------------------ */
@@ -576,7 +774,7 @@ function vueImpression(c) {
       <div class="pr-colonnes">
         <section class="pr-bloc">
           <h2>Le Chaton</h2>
-          ${ligne('Enfance :', c.enfance)}
+          ${ligne('Histoire :', c.enfance)}
           ${ligne('Caractère :', c.caractere)}
           ${ligne('Don de naissance :', c.donNaissance)}
         </section>
@@ -687,27 +885,30 @@ app.addEventListener('change', (e) => {
   if (el.id === 'fichier-import') {
     lireFichierImport(el.files[0]);
     el.value = '';
-  } else if (el.id === 'fichier-portrait') {
-    importerPortrait(el.files[0]);
-    el.value = '';
   } else if (el.id === 'fichier-galerie') {
     importerDansGalerie(Array.from(el.files));
     el.value = '';
-  } else if (el.dataset.galerie) {
-    const [id, cle] = el.dataset.galerie.split('.');
-    const entree = Store.galerieGet(id);
-    if (entree) { entree[cle] = el.value; Store.sauver(); }
+  } else if (el.dataset.imageMeta) {
+    enregistrerMetaImage(el);
   }
 });
 
-/* Le nom d'une entrée de galerie se tape : on enregistre sans re-rendre. */
+/* Nom d'une image tapé au clavier : on enregistre sans re-rendre. */
+let minuteurMeta = null;
 app.addEventListener('input', (e) => {
+  if (!e.target.dataset.imageMeta) return;
+  clearTimeout(minuteurMeta);
   const el = e.target;
-  if (!el.dataset.galerie) return;
-  const [id, cle] = el.dataset.galerie.split('.');
-  const entree = Store.galerieGet(id);
-  if (entree) { entree[cle] = el.value; Store.sauverBientot(null); }
+  minuteurMeta = setTimeout(() => enregistrerMetaImage(el), 400);
 });
+
+function enregistrerMetaImage(el) {
+  const [id, cle] = el.dataset.imageMeta.split('.');
+  Images.majMeta(id, { [cle]: el.value }).then(() => {
+    const meta = imageMeta(id);
+    if (meta) meta[cle] = el.value;   // garde la bibliothèque en mémoire à jour
+  });
+}
 
 app.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
@@ -752,17 +953,25 @@ app.addEventListener('click', (e) => {
       break;
 
     /* --- images --- */
-    case 'choisir-portrait':
-      $('#fichier-portrait').click();
+    case 'illustrer': {
+      if (!c) break;
+      const cible = btn.dataset.cible;
+      const cle = btn.dataset.cle;
+      const actuel = imageDe(c, cible, cle, index);
+      Bibliotheque.choisir({ titre: 'Choisir une image', actuel }).then((choix) => {
+        if (choix === false) return;           // annulé
+        definirImage(c, cible, cle, index, choix);   // null = retirer l'image
+        Store.sauver();
+        rafraichirBibliotheque().then(() => rafraichir(sectionDe(cible)));
+      });
       break;
-    case 'retirer-portrait': {
-      const ancien = c.portraitId;
+    }
+    case 'retirer-portrait':
+      /* L'image reste dans la bibliothèque : elle peut resservir ailleurs. */
       c.portraitId = null;
       Store.sauver();
       rafraichir('portrait');
-      if (ancien) Images.supprimer(ancien);
       break;
-    }
     case 'choisir-images':
       $('#fichier-galerie').click();
       break;
@@ -776,15 +985,47 @@ app.addEventListener('click', (e) => {
     case 'fermer-visionneuse':
       aller('#/galerie');
       break;
-    case 'supprimer-entree': {
-      const entree = Store.galerieGet(btn.dataset.id);
-      if (entree && confirm(`Retirer « ${entree.nom || 'cette image'} » de la galerie ?`)) {
-        Store.galerieSupprimer(entree.id);
-        if (entree.imageId) Images.supprimer(entree.imageId);
-        vueGalerie();
+    case 'supprimer-image': {
+      const meta = imageMeta(btn.dataset.id);
+      const utilisee = Store.tous().some((x) =>
+        x.portraitId === btn.dataset.id
+        || Object.values(x.imagesTalents).includes(btn.dataset.id)
+        || Object.values(x.imagesQualites).includes(btn.dataset.id)
+        || x.talentsCustom.some((t) => t.imageId === btn.dataset.id)
+        || x.qualitesCustom.some((q) => q.imageId === btn.dataset.id));
+      const avertissement = utilisee
+        ? '\n\nAttention : elle est utilisée sur une fiche de personnage.' : '';
+      if (confirm(`Supprimer « ${(meta && meta.nom) || 'cette image'} » de la bibliothèque ?${avertissement}`)) {
+        Images.supprimer(btn.dataset.id)
+          .then(rafraichirBibliotheque)
+          .then(vueGalerie);
       }
       break;
     }
+
+    /* --- générateur de portraits --- */
+    case 'portrait-choix': {
+      const axe = btn.dataset.axe;
+      choixPortrait[axe] = choixPortrait[axe] === btn.dataset.option ? undefined : btn.dataset.option;
+      vuePortraits();
+      break;
+    }
+    case 'portrait-dosage':
+      choixPortrait.dosage = btn.dataset.dosage;
+      vuePortraits();
+      break;
+    case 'portrait-hasard':
+      /* Le dosage en cours est conservé : c'est un réglage, pas un choix de jeu. */
+      choixPortrait = Prompts.auHasard(choixPortrait.dosage);
+      vuePortraits();
+      break;
+    case 'portrait-effacer':
+      choixPortrait = { dosage: choixPortrait.dosage };
+      vuePortraits();
+      break;
+    case 'copier-prompt':
+      copierPrompt(Prompts.composer(choixPortrait));
+      break;
 
     /* --- qualités --- */
     case 'qualite-plus':
@@ -904,29 +1145,37 @@ function lireFichierImport(fichier) {
       alert('Fichier illisible : ' + err.message);
       return;
     }
-    Promise.all(resultat.images.map((i) => Images.restaurer(i).catch(() => null))).then(() => {
-      const bouts = [`${resultat.chatons} fiche${resultat.chatons > 1 ? 's' : ''}`];
-      if (resultat.galerie) bouts.push(`${resultat.galerie} image${resultat.galerie > 1 ? 's' : ''} de galerie`);
-      alert('Importé : ' + bouts.join(', ') + '.');
-      vueListe();
-    });
+    Promise.all(resultat.images.map((i) => Images.restaurer(i).catch(() => null)))
+      /* Sauvegardes au format 2 : reporter les noms sur les images. */
+      .then(() => Promise.all(resultat.noms.map((n) =>
+        Images.majMeta(n.imageId, { nom: n.nom, categorie: n.categorie }).catch(() => null))))
+      .then(rafraichirBibliotheque)
+      .then(() => {
+        const bouts = [`${resultat.chatons} fiche${resultat.chatons > 1 ? 's' : ''}`];
+        if (resultat.images.length) {
+          bouts.push(`${resultat.images.length} image${resultat.images.length > 1 ? 's' : ''}`);
+        }
+        alert('Importé : ' + bouts.join(', ') + '.');
+        vueListe();
+      });
   };
   lecteur.readAsText(fichier);
 }
 
-/* --- Import d'images --- */
+/* --- Prompt --- */
 
-function importerPortrait(fichier) {
-  const c = chatonCourant;
-  if (!fichier || !c) return;
-  const ancien = c.portraitId;
-  Images.importer(fichier).then((image) => {
-    c.portraitId = image.id;
-    Store.sauver();
-    rafraichir('portrait');
-    if (ancien) Images.supprimer(ancien);
-  }).catch((err) => alert('Image impossible à charger : ' + err.message));
+function copierPrompt(texte) {
+  const retour = (message) => { const z = $('#prompt-retour'); if (z) z.textContent = message; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte)
+      .then(() => retour('Prompt copié — colle-le dans Midjourney.'))
+      .catch(() => retour('Copie refusée par le navigateur : sélectionne le texte à la main.'));
+  } else {
+    retour('Copie indisponible ici : sélectionne le texte à la main.');
+  }
 }
+
+/* --- Import d'images --- */
 
 function importerDansGalerie(fichiers) {
   if (!fichiers.length) return;
@@ -942,16 +1191,13 @@ function importerDansGalerie(fichiers) {
   fichiers.forEach((fichier, n) => {
     chaine = chaine.then(() => {
       avancer(n + 1);
-      return Images.importer(fichier).then((image) => {
-        Store.galerieAjouter({
-          nom: (fichier.name || '').replace(/\.[^.]+$/, ''),
-          categorie: filtreGalerie === 'tout' ? 'monstre' : filtreGalerie,
-          imageId: image.id,
-        });
+      /* La catégorie du filtre actif : on peut verser 20 monstres sans rien reclasser. */
+      return Images.importer(fichier, {
+        categorie: filtreGalerie === 'tout' ? 'monstre' : filtreGalerie,
       }).catch(() => null);
     });
   });
-  chaine.then(() => vueGalerie());
+  chaine.then(rafraichirBibliotheque).then(vueGalerie);
 }
 
 /* ------------------------------------------------------------------ */
@@ -964,6 +1210,20 @@ Store.charger();
    permission protège aussi le cache de la coquille, donc le démarrage
    hors connexion. */
 Images.demanderPersistance();
+
+/* Ancien format : les noms d'images vivaient dans une liste « galerie » à part.
+   On les reporte sur les images elles-mêmes, puis on oublie l'ancienne liste. */
+function migrerGalerie() {
+  const aMigrer = Store.galerieAMigrer();
+  if (!aMigrer.length) return Promise.resolve();
+  return Promise.all(aMigrer.map((e) =>
+    Images.majMeta(e.imageId, { nom: e.nom, categorie: e.categorie }).catch(() => null)
+  )).then(() => Store.galerieOubliee());
+}
+
+migrerGalerie()
+  .then(rafraichirBibliotheque)
+  .then(() => { if (location.hash.startsWith('#/galerie')) vueGalerie(); });
 
 window.addEventListener('hashchange', router);
 router();
@@ -978,4 +1238,4 @@ if ('serviceWorker' in navigator && !enLocal) {
 }
 
 /* Accès aux modules depuis la console, en développement seulement. */
-if (enLocal) window.DC = { Store, Images };
+if (enLocal) window.DC = { Store, Images, Prompts, Bibliotheque };

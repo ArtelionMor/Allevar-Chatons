@@ -104,12 +104,22 @@ function reduire(fichier) {
   });
 }
 
-/** Importe un fichier choisi par l'utilisateur. Renvoie la fiche de l'image. */
-export function importer(fichier) {
+/** Nom lisible déduit du fichier, à défaut de mieux. */
+function nomDepuisFichier(fichier) {
+  return (fichier.name || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+}
+
+/**
+ * Importe un fichier choisi par l'utilisateur et l'ajoute à la bibliothèque.
+ * Renvoie la fiche de l'image.
+ */
+export function importer(fichier, { nom, categorie = 'monstre' } = {}) {
   return reduire(fichier).then(({ blob, largeur, hauteur }) => {
     const fiche = {
       id: uid(),
       blob,
+      nom: nom || nomDepuisFichier(fichier),
+      categorie,
       largeur,
       hauteur,
       taille: blob.size,
@@ -119,6 +129,15 @@ export function importer(fichier) {
     return transaction('readwrite', (m) => m.put(fiche))
       .then(demanderPersistance)
       .then(() => fiche);
+  });
+}
+
+/** Modifie les métadonnées (nom, catégorie) sans toucher au Blob. */
+export function majMeta(id, champs) {
+  return transaction('readwrite', (m) => m.get(id)).then((fiche) => {
+    if (!fiche) return null;
+    const copie = { ...fiche, ...champs, id: fiche.id, blob: fiche.blob };
+    return transaction('readwrite', (m) => m.put(copie)).then(() => copie);
   });
 }
 
@@ -153,10 +172,16 @@ export function supprimer(id) {
   return transaction('readwrite', (m) => m.delete(id));
 }
 
-/** Toutes les images, sans les Blobs (pour compter et mesurer). */
+/**
+ * La bibliothèque : toutes les images, sans les Blobs, de la plus récente à la
+ * plus ancienne. C'est la source unique — la Galerie, les talents, les qualités
+ * et les portraits y puisent tous.
+ */
 export function lister() {
   return transaction('readonly', (m) => m.getAll()).then((fiches) =>
-    (fiches || []).map(({ blob, ...meta }) => meta)
+    (fiches || [])
+      .map(({ blob, ...meta }) => meta)
+      .sort((a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''))
   );
 }
 

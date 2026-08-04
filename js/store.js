@@ -24,9 +24,11 @@ export function chatonVierge(nom = '') {
     caractere: '',
     donNaissance: '',
     qualites,
-    qualitesCustom: [],           // { id, nom, valeur }
+    qualitesCustom: [],           // { id, nom, valeur, imageId }
     talents: {},                  // { "Griffer": true }
-    talentsCustom: [],            // { id, nom, coche }
+    talentsCustom: [],            // { id, nom, coche, imageId }
+    imagesQualites: {},           // { costaud: imageId } — illustration facultative
+    imagesTalents: {},            // { "Griffer": imageId } — illustration facultative
     grimoire: [],                 // { id, nom, effet }
     sac: [],                      // { id, nom, qte, notes }
     experience: { niveau: 1, points: 0 },
@@ -74,6 +76,9 @@ function migrer(c) {
     if (!Array.isArray(fusion[cle])) fusion[cle] = [];
   }
   if (!fusion.talents || typeof fusion.talents !== 'object') fusion.talents = {};
+  for (const cle of ['imagesQualites', 'imagesTalents']) {
+    if (!fusion[cle] || typeof fusion[cle] !== 'object') fusion[cle] = {};
+  }
   fusion.id = c.id || base.id;
   return fusion;
 }
@@ -141,33 +146,24 @@ export const CATEGORIES = [
   { id: 'objet', nom: 'Objets' },
 ];
 
-export function galerieTous() {
-  return galerie;
+/**
+ * Ancien format : la galerie tenait les noms, IndexedDB tenait les fichiers.
+ * Désormais tout vit sur l'image elle-même. Renvoie les entrées à reporter
+ * dans la bibliothèque ; l'appelant les applique puis appelle galerieOubliee().
+ */
+export function galerieAMigrer() {
+  return galerie.filter((e) => e.imageId).map((e) => ({
+    imageId: e.imageId,
+    nom: e.nom || '',
+    categorie: e.categorie || 'monstre',
+  }));
 }
 
-export function galerieGet(id) {
-  return galerie.find((e) => e.id === id) || null;
-}
-
-export function galerieAjouter({ nom = '', categorie = 'monstre', imageId = null, notes = '' }) {
-  const entree = { id: uid(), nom, categorie, imageId, notes, creeLe: new Date().toISOString() };
-  galerie.push(entree);
-  sauver();
-  return entree;
-}
-
-export function galerieSupprimer(id) {
-  const i = galerie.findIndex((e) => e.id === id);
-  if (i >= 0) galerie.splice(i, 1);
-  sauver();
-}
-
-/** Tous les identifiants d'image encore utilisés (pour le ménage). */
-export function imagesUtilisees() {
-  return [
-    ...chatons.map((c) => c.portraitId),
-    ...galerie.map((e) => e.imageId),
-  ].filter(Boolean);
+export function galerieOubliee() {
+  galerie = [];
+  try {
+    localStorage.removeItem(KEY_GALERIE);
+  } catch (e) { /* sans importance */ }
 }
 
 /* --- Sauvegarde / restauration manuelle --- */
@@ -176,10 +172,9 @@ export function imagesUtilisees() {
 export function exporterJSON(images = []) {
   return JSON.stringify({
     format: 'donjon-et-chaton',
-    version: 2,
+    version: 3,
     exporteLe: new Date().toISOString(),
     chatons,
-    galerie,
     images,
   }, null, 2);
 }
@@ -199,16 +194,18 @@ export function importerJSON(texte, mode = 'fusion') {
     return c;
   });
   chatons = mode === 'remplacement' ? importes : chatons.concat(importes);
-
-  const entrees = Array.isArray(data.galerie) ? data.galerie : [];
-  const nouvelles = entrees.filter((e) => mode === 'remplacement' || !galerie.some((x) => x.id === e.id));
-  galerie = mode === 'remplacement' ? entrees : galerie.concat(nouvelles);
-
   sauver();
+
+  /* Sauvegardes au format 2 : les noms d'images vivaient dans « galerie ». */
+  const anciennes = Array.isArray(data.galerie) ? data.galerie : [];
+  const noms = anciennes.filter((e) => e.imageId).map((e) => ({
+    imageId: e.imageId, nom: e.nom || '', categorie: e.categorie || 'monstre',
+  }));
+
   return {
     chatons: importes.length,
-    galerie: nouvelles.length,
     images: Array.isArray(data.images) ? data.images : [],
+    noms,
   };
 }
 
