@@ -1,7 +1,7 @@
 /* Donjon & Chaton — application principale (vues + interactions) */
 
 import {
-  QUALITES, TALENTS_GAUCHE, TALENTS_DROITE, REGLES, QUALITE_MAX,
+  QUALITES, TALENTS_GAUCHE, TALENTS_DROITE, QUALITE_MAX,
 } from './data.js';
 import * as Store from './store.js';
 import * as Images from './images.js';
@@ -249,7 +249,6 @@ function vueFiche(c) {
       <div id="sec-sac">${sectionSac(c)}</div>
       <div id="sec-experience">${sectionExperience(c)}</div>
       ${sectionNotes(c)}
-      ${sectionRegles()}
     </form>
 
     <p class="sauvegarde-info">Sauvegarde automatique sur cet appareil.</p>
@@ -357,7 +356,6 @@ function sectionQualites(c) {
   return `
     <section class="bloc">
       <h2>Qualités</h2>
-      <p class="aide">Score de 0 à ${QUALITE_MAX}. On lance 3d6 : chaque dé ≤ au score est un succès.</p>
       <ul class="qualites">${lignes.join('')}</ul>
       <button class="btn btn-ajout" data-action="ajouter-qualite">+ Qualité personnalisée</button>
     </section>
@@ -473,7 +471,6 @@ function sectionTalents(c) {
   return `
     <section class="bloc">
       <h2>Talents</h2>
-      <p class="aide">Un talent adapté donne un Avantage (4d6).</p>
 
       ${illustres.length ? `<ul class="grille grille-talents">${illustres.map(carte).join('')}</ul>` : ''}
 
@@ -507,7 +504,6 @@ function sectionGrimoire(c) {
   return `
     <section class="bloc">
       <h2>Grimoire</h2>
-      <p class="aide">Les sorts que le Chaton connaît.</p>
       ${c.grimoire.length === 0 ? '<p class="vide-mini">Aucun sort pour l’instant.</p>' : `
         <ul class="cartes-lignes">
           ${c.grimoire.map((s, i) => `
@@ -530,7 +526,6 @@ function sectionSac(c) {
   return `
     <section class="bloc">
       <h2>Sac de voyage</h2>
-      <p class="aide">Un objet utile permet de relancer 1d6 qui ne convient pas.</p>
       ${c.sac.length === 0 ? '<p class="vide-mini">Le sac est vide.</p>' : `
         <ul class="cartes-lignes">
           ${c.sac.map((o, i) => `
@@ -590,16 +585,6 @@ function sectionNotes(c) {
   `;
 }
 
-function sectionRegles() {
-  return `
-    <details class="bloc bloc-regles">
-      <summary><h2>Règles du jeu</h2></summary>
-      <dl class="regles">
-        ${REGLES.map(([titre, texte]) => `<dt>${esc(titre)}</dt><dd>${esc(texte)}</dd>`).join('')}
-      </dl>
-    </details>
-  `;
-}
 
 /* ------------------------------------------------------------------ */
 /* Vue : galerie (ce qu'on montre aux enfants pendant la partie)       */
@@ -821,10 +806,6 @@ function vueImpression(c) {
 
       ${c.notes ? `<section class="pr-bloc"><h2>Notes</h2><p>${esc(c.notes)}</p></section>` : ''}
 
-      <section class="pr-bloc pr-regles">
-        <h2>Règles</h2>
-        <dl>${REGLES.map(([t, x]) => `<dt>${esc(t)}</dt><dd>${esc(x)}</dd>`).join('')}</dl>
-      </section>
     </article>
   `;
   peindreImages();
