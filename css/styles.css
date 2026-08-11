@@ -816,6 +816,11 @@ body.modale-ouverte { overflow: hidden; }
 /* ------------------------------------------------------------------ */
 
 .feuille {
+  /* Facteur d'echelle de la feuille : ajuste par app.js pour tenir en une
+     page. Toutes les tailles ci-dessous en dependent, sans quoi seule la
+     typographie se reduirait et les images resteraient enormes. */
+  --echelle: 1;
+  font-size: calc(1rem * var(--echelle));
   background: var(--carte);
   border: 1px solid var(--trait);
   border-radius: var(--rayon);
@@ -826,12 +831,12 @@ body.modale-ouverte { overflow: hidden; }
 
 /* --- En-tête : portrait à gauche, identité et Qualités à droite --- */
 
-.pr-tete { display: flex; align-items: stretch; gap: 18px; margin-bottom: 20px; }
+.pr-tete { display: flex; align-items: stretch; gap: calc(18px * var(--echelle)); margin-bottom: calc(20px * var(--echelle)); }
 
 .pr-portrait {
   flex: none;
-  width: 58mm;
-  height: 58mm;
+  width: calc(58mm * var(--echelle));
+  height: calc(58mm * var(--echelle));
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--trait);
@@ -842,13 +847,13 @@ body.modale-ouverte { overflow: hidden; }
 /* Colonne en flex pour que les Qualités s'alignent sur le bas du portrait :
    les deux blocs se terminent ensemble, ce qui pose l'en-tête. */
 .pr-identite { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.pr-nom { margin: 0; font-size: 1.75rem; line-height: 1.1; color: var(--bois); text-align: right; }
+.pr-nom { margin: 0; font-size: 1.75em; line-height: 1.1; color: var(--bois); text-align: right; }
 .pr-sous {
   margin: 3px 0 auto;
   text-align: right;
   color: var(--encre-douce);
   font-family: var(--sans);
-  font-size: .84rem;
+  font-size: .84em;
 }
 
 /* Un seul style de titre de section, en-tête comprise : c'est ce qui tient
@@ -856,7 +861,7 @@ body.modale-ouverte { overflow: hidden; }
 .pr-bloc h2, .pr-titre-qualites {
   margin: 0 0 8px;
   font-family: var(--sans);
-  font-size: .72rem;
+  font-size: .72em;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .12em;
@@ -864,12 +869,16 @@ body.modale-ouverte { overflow: hidden; }
   border-bottom: 1px solid var(--trait);
   padding-bottom: 4px;
 }
-.pr-titre-qualites { margin-top: 14px; }
+.pr-titre-qualites { margin-top: 14px; margin-left: auto; width: calc(72mm * var(--echelle)); max-width: 100%; }
 
-.pr-bloc { margin-bottom: 20px; break-inside: avoid; }
+
+.pr-bloc { margin-bottom: calc(20px * var(--echelle)); break-inside: avoid; }
 .pr-vide { color: var(--encre-douce); font-style: italic; }
 
-.pr-qualites { list-style: none; margin: 0; padding: 0; }
+/* Le tableau ne prend pas toute la largeur restante : sans cette limite, le
+   nom et son score se retrouvent aux deux bouts de la page, séparés par un
+   vide de plusieurs centimètres. Calé à droite, sous le nom du personnage. */
+.pr-qualites { list-style: none; margin: 0 0 0 auto; padding: 0; width: 72mm; max-width: 100%; }
 .pr-qualites li {
   display: flex;
   justify-content: space-between;
@@ -879,17 +888,17 @@ body.modale-ouverte { overflow: hidden; }
   padding: 2.5px 0;
 }
 .pr-qualites li:last-child { border-bottom: none; }
-.pr-qualites b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.pr-qualites b { font-size: 1.05em; font-variant-numeric: tabular-nums; }
 .pr-pv { border-bottom: 1px solid var(--trait); padding-bottom: 4px; margin-bottom: 2px; }
 
 /* --- Histoire, caractère, don --- */
 
-.pr-details { margin-bottom: 22px; }
+.pr-details { margin-bottom: calc(22px * var(--echelle)); }
 .pr-champ { margin: 0 0 6px; line-height: 1.45; }
 .pr-champ:last-child { margin-bottom: 0; }
 .pr-champ b {
   font-family: var(--sans);
-  font-size: .78rem;
+  font-size: .78em;
   font-weight: 600;
   color: var(--encre-douce);
   text-transform: uppercase;
@@ -898,12 +907,16 @@ body.modale-ouverte { overflow: hidden; }
 
 /* --- Listes illustrées --- */
 
+/* Fiches denses : deux colonnes plutôt qu'une typographie minuscule. */
+.feuille.deux-colonnes .pr-entrees { columns: 2; column-gap: calc(8mm * var(--echelle)); }
+.feuille.deux-colonnes .pr-entrees li { break-inside: avoid; -webkit-column-break-inside: avoid; }
+
 .pr-entrees { list-style: none; margin: 0; padding: 0; }
 .pr-entrees li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: calc(10px * var(--echelle));
+  margin-bottom: calc(8px * var(--echelle));
   break-inside: avoid;
 }
 .pr-entrees li:last-child { margin-bottom: 0; }
@@ -915,8 +928,8 @@ body.modale-ouverte { overflow: hidden; }
   content: "✦"; position: absolute; left: 0; color: var(--or);
 }
 
-.pr-vignette { flex: none; width: 15mm; border-radius: 6px; background: transparent; }
-img.pr-vignette { height: 15mm; object-fit: cover; border: 1px solid var(--trait); }
+.pr-vignette { flex: none; width: calc(15mm * var(--echelle)); border-radius: 6px; background: transparent; }
+img.pr-vignette { height: calc(15mm * var(--echelle)); object-fit: cover; border: 1px solid var(--trait); }
 /* L'emplacement vide n'est qu'une cale d'alignement : sans hauteur propre,
    la ligne se referme sur son texte au lieu de laisser un trou. */
 span.pr-vignette { height: 0; }

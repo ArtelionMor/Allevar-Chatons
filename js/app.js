@@ -40,12 +40,69 @@ function autoTaille(ta) {
 
 /** Résout les <img data-image="id"> : le Blob est lu en IndexedDB, pas sur le réseau. */
 function peindreImages(racine = app) {
-  $$('[data-image]', racine).forEach((el) => {
-    Images.url(el.dataset.image).then((u) => {
-      if (u) el.src = u;
-      else el.closest('.vignette, .portrait')?.classList.add('image-absente');
-    });
-  });
+  return Promise.all($$('[data-image]', racine).map((el) =>
+    Images.url(el.dataset.image).then((u) => new Promise((resolve) => {
+      if (!u) {
+        el.closest('.vignette, .portrait')?.classList.add('image-absente');
+        return resolve();
+      }
+      /* On attend le chargement : la hauteur des images conditionne la mise
+         à l'échelle de la feuille imprimée. */
+      if (el.tagName !== 'IMG') { el.src = u; return resolve(); }
+      el.onload = el.onerror = () => resolve();
+      el.src = u;
+    }))
+  ));
+}
+
+/**
+ * Ramène la feuille à une seule page.
+ *
+ * On mesure la hauteur réelle du contenu et on réduit un facteur unique dont
+ * dépendent toutes les tailles de la feuille — typographie, portrait,
+ * vignettes. Deux passes : réduire la typographie fait refluer le texte, donc
+ * la hauteur obtenue n'est pas exactement proportionnelle au facteur.
+ */
+const ECHELLE_MIN = 0.5;      // plancher : en deçà, le texte n'est plus lisible
+const ECHELLE_CONFORT = 0.85; // sous ce seuil, mieux vaut deux colonnes
+
+function ajusterSurUnePage() {
+  const feuille = $('.feuille');
+  if (!feuille) return;
+
+  /* Le rapport mm → pixels dépend du zoom : on le mesure au lieu de le supposer. */
+  const etalon = document.createElement('div');
+  etalon.style.cssText = 'position:absolute;visibility:hidden;height:100mm';
+  feuille.appendChild(etalon);
+  const pixelsParMm = etalon.getBoundingClientRect().height / 100;
+  etalon.remove();
+  if (!pixelsParMm) return;
+
+  /* A4 moins les marges de 12mm déclarées dans @page. */
+  const disponible = (297 - 24) * pixelsParMm;
+
+  /* Une seule colonne tant que la réduction reste lisible : des colonnes
+     étroites hachent les descriptions, qui sont longues. On n'y passe que
+     si la fiche demanderait une typographie trop petite. */
+  const reduire = () => {
+    let echelle = 1;
+    for (let passe = 0; passe < 4; passe++) {
+      feuille.style.setProperty('--echelle', echelle);
+      const hauteur = feuille.scrollHeight;
+      if (hauteur <= disponible) return echelle;
+      echelle = Math.max(ECHELLE_MIN, echelle * (disponible / hauteur) * 0.99);
+      if (echelle <= ECHELLE_MIN) break;
+    }
+    feuille.style.setProperty('--echelle', ECHELLE_MIN);
+    return ECHELLE_MIN;
+  };
+
+  feuille.classList.remove('deux-colonnes');
+  if (reduire() < ECHELLE_CONFORT) {
+    feuille.classList.add('deux-colonnes');
+    reduire();
+  }
+  feuille.dataset.echelle = Number(feuille.style.getPropertyValue('--echelle')).toFixed(2);
 }
 
 /* ------------------------------------------------------------------ */
@@ -868,7 +925,7 @@ function vueImpression(c) {
       ${c.notes ? bloc('Notes', `<p>${esc(c.notes)}</p>`) : ''}
     </article>
   `;
-  peindreImages();
+  peindreImages().then(ajusterSurUnePage);
 }
 
 /* ------------------------------------------------------------------ */

@@ -14,7 +14,7 @@
  * Pense à incrémenter CACHE à chaque modification des fichiers listés.
  */
 
-const CACHE = 'donjon-chaton-v14';
+const CACHE = 'donjon-chaton-v15';
 const PAGE = './index.html';
 
 /* Uniquement la coquille de l'application : quelques dizaines de Ko.
