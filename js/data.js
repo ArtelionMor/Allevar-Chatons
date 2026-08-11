@@ -1,10 +1,12 @@
 /* Donjon & Chaton — données de référence du jeu (extraites de la fiche de perso) */
 
+/* Les identifiants restent ceux d'origine : les renommer effacerait les scores
+   deja saisis sur les fiches existantes. Seul le nom affiche change. */
 export const QUALITES = [
-  { id: 'costaud', nom: 'Costaud' },
-  { id: 'malin',   nom: 'Malin' },
-  { id: 'mignon',  nom: 'Mignon' },
-  { id: 'coeur',   nom: 'Cœur' },
+  { id: 'costaud', nom: 'Force' },
+  { id: 'malin',   nom: 'Intelligence' },
+  { id: 'mignon',  nom: 'Agilité' },
+  { id: 'coeur',   nom: 'Courage' },
   { id: 'amitie',  nom: 'Amitié' },
 ];
 

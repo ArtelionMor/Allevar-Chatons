@@ -276,6 +276,8 @@ function sectionIdentite(c) {
       <div id="sec-portrait">${sectionPortrait(c)}</div>
       ${champ('Nom du Chaton', 'nom', c.nom, { placeholder: 'Moustache de Velours…' })}
       ${champ('Joueuse / Joueur', 'joueuse', c.joueuse)}
+      ${champ('Classe', 'classe', c.classe, { multi: true, placeholder: 'Paladin, Alchimiste…' })}
+      ${champ('Animal', 'animal', c.animal, { multi: true, placeholder: 'Chèvre, Husky, Lézard…' })}
       ${champ('Histoire', 'enfance', c.enfance, { multi: true, placeholder: 'D’où vient-il, ce qu’il a vécu…' })}
       ${champ('Caractère', 'caractere', c.caractere, { multi: true, placeholder: 'Curieux, grognon, trouillard…' })}
       ${champ('Don de naissance', 'donNaissance', c.donNaissance, { multi: true })}
@@ -506,7 +508,10 @@ function sectionTalents(c) {
               <label class="case">
                 <input type="checkbox" data-champ-case="talentsCustom.${t.index}.coche" ${t.coche ? 'checked' : ''}>
               </label>
-              <input class="modifiable" type="text" data-champ="talentsCustom.${t.index}.nom" value="${esc(t.nom)}" placeholder="Nouveau talent">
+              <div class="talent-corps">
+                <input class="modifiable" type="text" data-champ="talentsCustom.${t.index}.nom" value="${esc(t.nom)}" placeholder="Nouveau talent">
+                <textarea rows="1" data-champ="talentsCustom.${t.index}.description" placeholder="Ce que fait ce talent…">${esc(t.description || '')}</textarea>
+              </div>
               ${boutonIllustrer({ cible: 'talent-custom', index: t.index })}
               <button type="button" class="btn-icone danger" data-action="retirer-talent" data-index="${t.index}" title="Retirer">✕</button>
             </li>`).join('')}
@@ -761,7 +766,7 @@ function vueImpression(c) {
       .map((t) => ({ nom: t, imageId: c.imagesTalents[t] || null })),
     ...c.talentsCustom
       .filter((t) => t.coche)
-      .map((t) => ({ nom: t.nom, imageId: t.imageId || null })),
+      .map((t) => ({ nom: t.nom, texte: t.description || '', imageId: t.imageId || null })),
   ];
   const sorts = c.grimoire.map((s) => ({ nom: s.nom, texte: s.effet, imageId: s.imageId || null }));
   const objets = c.sac.map((o) => ({
@@ -816,6 +821,8 @@ function vueImpression(c) {
       </div>
 
       <div class="pr-details">
+        ${champ('Classe', c.classe)}
+        ${champ('Animal', c.animal)}
         ${champ('Histoire', c.enfance)}
         ${champ('Caractère', c.caractere)}
         ${champ('Don de naissance', c.donNaissance)}

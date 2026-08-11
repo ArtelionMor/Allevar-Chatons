@@ -20,6 +20,8 @@ export function chatonVierge(nom = '') {
     id: uid(),
     nom,
     joueuse: '',
+    classe: '',
+    animal: '',
     enfance: '',
     caractere: '',
     donNaissance: '',
