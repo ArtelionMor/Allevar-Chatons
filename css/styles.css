@@ -815,6 +815,8 @@ body.modale-ouverte { overflow: hidden; }
 /* Vue impression                                                      */
 /* ------------------------------------------------------------------ */
 
+.feuille + .feuille { margin-top: 24px; }
+
 .feuille {
   /* Facteur d'echelle de la feuille : ajuste par app.js pour tenir en une
      page. Toutes les tailles ci-dessous en dependent, sans quoi seule la
@@ -945,8 +947,12 @@ span.pr-vignette { height: 0; }
   body { font-size: 11pt; background: #fff; }
   #app { max-width: none; padding: 0; }
   .sans-impression, .barre { display: none !important; }
+  /* Une fiche par page, sans page blanche apres la derniere. */
+  .feuille { break-after: page; page-break-after: always; }
+  .feuille:last-child { break-after: auto; page-break-after: auto; }
+  .feuille + .feuille { margin-top: 0; }
   .feuille { border: none; box-shadow: none; padding: 0; border-radius: 0; }
-  .pr-colonnes { grid-template-columns: 1.4fr 1fr; }
-  .pr-talents { columns: 2; }
-  @page { margin: 14mm; }
+  /* 12mm : valeur reprise telle quelle par ajusterSurUnePage() dans app.js.
+     Les deux doivent rester d'accord, sinon la feuille calculee deborde. */
+  @page { margin: 12mm; }
 }

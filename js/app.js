@@ -63,11 +63,15 @@ function peindreImages(racine = app) {
  * vignettes. Deux passes : réduire la typographie fait refluer le texte, donc
  * la hauteur obtenue n'est pas exactement proportionnelle au facteur.
  */
+const MARGE_PAGE_MM = 12;     // doit correspondre au @page de styles.css
 const ECHELLE_MIN = 0.5;      // plancher : en deçà, le texte n'est plus lisible
 const ECHELLE_CONFORT = 0.85; // sous ce seuil, mieux vaut deux colonnes
 
-function ajusterSurUnePage() {
-  const feuille = $('.feuille');
+function ajusterToutesLesFeuilles() {
+  $$('.feuille').forEach(ajusterSurUnePage);
+}
+
+function ajusterSurUnePage(feuille) {
   if (!feuille) return;
 
   /* Le rapport mm → pixels dépend du zoom : on le mesure au lieu de le supposer. */
@@ -78,8 +82,8 @@ function ajusterSurUnePage() {
   etalon.remove();
   if (!pixelsParMm) return;
 
-  /* A4 moins les marges de 12mm déclarées dans @page. */
-  const disponible = (297 - 24) * pixelsParMm;
+  /* A4 moins les marges de @page, declarees a 12mm dans styles.css. */
+  const disponible = (297 - 2 * MARGE_PAGE_MM) * pixelsParMm;
 
   /* Une seule colonne tant que la réduction reste lisible : des colonnes
      étroites hachent les descriptions, qui sont longues. On n'y passe que
@@ -125,7 +129,7 @@ function imageMeta(id) {
 function router() {
   const h = location.hash.replace(/^#\/?/, '');
   const [vue, id] = h.split('/');
-  document.body.classList.toggle('mode-impression', vue === 'imprimer');
+  document.body.classList.toggle('mode-impression', vue === 'imprimer' || vue === 'imprimer-tout');
 
   if (vue === 'fiche' && Store.get(id)) {
     chatonCourant = Store.get(id);
@@ -133,6 +137,9 @@ function router() {
   } else if (vue === 'imprimer' && Store.get(id)) {
     chatonCourant = Store.get(id);
     vueImpression(chatonCourant);
+  } else if (vue === 'imprimer-tout') {
+    chatonCourant = null;
+    vueImpressionTout();
   } else if (vue === 'galerie') {
     chatonCourant = null;
     rafraichirBibliotheque().then(vueGalerie);
@@ -182,6 +189,9 @@ function vueListe() {
       <ul class="liste-chatons">
         ${chatons.map((c) => carteChaton(c)).join('')}
       </ul>
+      <button class="btn btn-ajout" data-action="imprimer-tout">
+        🖨 Imprimer toutes les fiches (${chatons.length})
+      </button>
     `}
 
     <section class="bloc-outils">
@@ -841,7 +851,8 @@ function vuePortraits() {
 /* Vue : impression                                                    */
 /* ------------------------------------------------------------------ */
 
-function vueImpression(c) {
+/** Le contenu d'une feuille, réutilisé par l'impression d'une fiche ou de toutes. */
+function feuilleChaton(c) {
   const talents = [
     ...[...TALENTS_GAUCHE, ...TALENTS_DROITE]
       .filter((t) => c.talents[t])
@@ -880,12 +891,7 @@ function vueImpression(c) {
   const bloc = (titre, contenu) => `
     <section class="pr-bloc"><h2>${esc(titre)}</h2>${contenu}</section>`;
 
-  app.innerHTML = `
-    <header class="barre sans-impression">
-      <a class="btn-retour" href="#/fiche/${c.id}">‹ Retour</a>
-      <button class="btn btn-principal" data-action="lancer-impression">🖨 Imprimer</button>
-    </header>
-
+  return `
     <article class="feuille">
       <div class="pr-tete">
         ${c.portraitId
@@ -923,9 +929,31 @@ function vueImpression(c) {
         </ul>`) : ''}
 
       ${c.notes ? bloc('Notes', `<p>${esc(c.notes)}</p>`) : ''}
-    </article>
-  `;
-  peindreImages().then(ajusterSurUnePage);
+    </article>`;
+}
+
+function vueImpression(c) {
+  app.innerHTML = `
+    <header class="barre sans-impression">
+      <a class="btn-retour" href="#/fiche/${c.id}">‹ Retour</a>
+      <button class="btn btn-principal" data-action="lancer-impression">🖨 Imprimer</button>
+    </header>
+    ${feuilleChaton(c)}`;
+  peindreImages().then(ajusterToutesLesFeuilles);
+}
+
+/** Toutes les fiches d'un coup, une page chacune. */
+function vueImpressionTout() {
+  const chatons = Store.tous();
+  app.innerHTML = `
+    <header class="barre sans-impression">
+      <a class="btn-retour" href="#/">‹ Fiches</a>
+      <button class="btn btn-principal" data-action="lancer-impression">🖨 Imprimer</button>
+    </header>
+    ${chatons.length === 0
+      ? '<p class="vide">Aucune fiche à imprimer.</p>'
+      : chatons.map(feuilleChaton).join('')}`;
+  peindreImages().then(ajusterToutesLesFeuilles);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1040,6 +1068,9 @@ app.addEventListener('click', (e) => {
     }
     case 'imprimer':
       aller('#/imprimer/' + btn.dataset.id);
+      break;
+    case 'imprimer-tout':
+      aller('#/imprimer-tout');
       break;
     case 'lancer-impression':
       window.print();
