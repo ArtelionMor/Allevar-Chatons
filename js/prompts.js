@@ -391,6 +391,15 @@ export const AXES = [
     ],
   },
   {
+    id: 'genre',
+    nom: 'Genre',
+    aide: 'Ne rien choisir laisse Midjourney décider',
+    options: [
+      { id: 'femme', nom: 'Femme', fragment: 'a female character, feminine face and build' },
+      { id: 'homme', nom: 'Homme', fragment: 'a male character, masculine face and build' },
+    ],
+  },
+  {
     id: 'classe',
     nom: 'Classe',
     aide: 'Son métier d’aventurier',
@@ -450,7 +459,7 @@ export const DOSAGE_DEFAUT = 'equilibre';
 export const PARAMETRES = '--ar 3:4';
 
 /** Ordre d'assemblage : le sujet d'abord, Midjourney pèse plus le début. */
-const ORDRE = ['animal', 'classe', 'pose', 'fond'];
+const ORDRE = ['animal', 'genre', 'classe', 'pose', 'fond'];
 
 function fragment(axeId, optionId) {
   const axe = AXES.find((a) => a.id === axeId);
