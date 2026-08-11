@@ -408,8 +408,20 @@ input:focus, textarea:focus {
 .case input[type="checkbox"]:checked { background: var(--bois); border-color: var(--bois); }
 .case input[type="checkbox"]:checked::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
 
-.talents-perso li { display: flex; align-items: center; gap: 8px; }
-.talents-perso .modifiable { flex: 1; }
+.talents-perso li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; }
+/* Nom et description empilés, la colonne prend la place restante. */
+.talent-corps { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.talent-corps .modifiable { width: 100%; }
+.talent-corps textarea, .carte-talent-desc {
+  font-size: .86rem;
+  color: var(--encre-douce);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--trait);
+  border-radius: 0;
+  padding: 4px 2px;
+}
+.carte-talent-desc { width: 100%; margin: 0 10px 8px; width: calc(100% - 20px); }
 
 /* --- Lignes (grimoire, sac, progression) --- */
 

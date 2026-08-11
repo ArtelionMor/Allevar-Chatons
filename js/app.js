@@ -447,7 +447,10 @@ function sectionTalents(c) {
       .filter((t) => c.imagesTalents[t])
       .map((t) => ({ nom: t, imageId: c.imagesTalents[t], coche: !!c.talents[t], cible: 'talent', cle: t })),
     ...c.talentsCustom
-      .map((t, i) => ({ nom: t.nom, imageId: t.imageId, coche: !!t.coche, cible: 'talent-custom', index: i }))
+      .map((t, i) => ({
+        nom: t.nom, description: t.description || '', imageId: t.imageId,
+        coche: !!t.coche, cible: 'talent-custom', index: i,
+      }))
       .filter((t) => t.imageId),
   ];
 
@@ -487,6 +490,10 @@ function sectionTalents(c) {
         </label>
         ${boutonIllustrer(t, true)}
       </div>
+      ${t.cible === 'talent-custom'
+        ? `<textarea class="carte-talent-desc" rows="1" data-champ="talentsCustom.${t.index}.description"
+             placeholder="Ce que fait ce talent…">${esc(t.description || '')}</textarea>`
+        : ''}
     </li>`;
 
   return `
