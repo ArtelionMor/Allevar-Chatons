@@ -654,6 +654,14 @@ select {
   border: 1px solid var(--trait);
   border-radius: 12px;
 }
+.illustration-ligne {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  border: 1px solid var(--trait);
+}
+
 .qualite-illustree .illustration {
   flex: none;
   width: 82px;
@@ -784,44 +792,68 @@ body.modale-ouverte { overflow: hidden; }
   font-family: var(--serif);
 }
 
-.pr-entete { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.pr-tete { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+
 .pr-portrait {
-  width: 92px;
-  height: 92px;
+  flex: none;
+  width: 62mm;
+  height: 62mm;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--trait);
-  flex: none;
+  background: var(--parchemin-fonce);
 }
-.pr-nom { margin: 0; font-size: 1.7rem; color: var(--bois); }
-.pr-sous { margin: 2px 0 0; color: var(--encre-douce); font-family: var(--sans); font-size: .88rem; }
+.pr-portrait-vide { display: none; }
 
-.pr-colonnes { display: grid; gap: 18px; }
-@media (min-width: 620px) { .pr-colonnes { grid-template-columns: 1.4fr 1fr; } }
-
-.pr-bloc { margin-bottom: 18px; break-inside: avoid; }
-.pr-bloc h2 {
-  font-size: .78rem;
+.pr-identite { flex: 1; min-width: 0; text-align: right; }
+.pr-nom { margin: 0; font-size: 1.7rem; color: var(--bois); line-height: 1.15; }
+.pr-sous { margin: 2px 0 10px; color: var(--encre-douce); font-family: var(--sans); font-size: .88rem; }
+.pr-titre-qualites {
+  margin: 0 0 4px;
+  font-family: var(--sans);
+  font-size: .72rem;
   text-transform: uppercase;
   letter-spacing: .1em;
   color: var(--bois);
   border-bottom: 1px solid var(--trait);
-  padding-bottom: 4px;
-  margin: 0 0 8px;
-  font-family: var(--sans);
+  padding-bottom: 3px;
 }
-.pr-champ { margin: 0 0 6px; }
-.pr-label { color: var(--encre-douce); font-family: var(--sans); font-size: .8rem; }
-.pr-vide { color: var(--encre-douce); font-style: italic; }
 
-.pr-qualites { list-style: none; margin: 0; padding: 0; }
+.pr-details { margin-bottom: 16px; }
+.pr-details .pr-champ { margin: 0 0 5px; }
+.pr-details b { font-family: var(--sans); font-size: .82rem; color: var(--encre-douce); font-weight: 600; }
+
+/* Qualités : nom à gauche, score à droite, malgré l'alignement à droite du bloc. */
+.pr-qualites { list-style: none; margin: 0; padding: 0; text-align: left; }
 .pr-qualites li {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
   border-bottom: 1px dotted var(--trait);
   padding: 3px 0;
 }
-.pr-qualites b { font-size: 1.1rem; }
+.pr-qualites b { font-size: 1.05rem; }
+
+/* Listes illustrées : la colonne d'images n'apparaît que si une entrée en a une. */
+.pr-entrees { list-style: none; margin: 0; padding: 0; }
+.pr-entrees li { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; break-inside: avoid; }
+.pr-entrees p { margin: 0; }
+.pr-entrees:not(.pr-entrees-illustrees) li { padding-left: 18px; position: relative; }
+.pr-entrees:not(.pr-entrees-illustrees) li::before {
+  content: "✦"; position: absolute; left: 0; color: var(--or);
+}
+.pr-vignette {
+  flex: none;
+  width: 16mm;
+  height: 16mm;
+  object-fit: cover;
+  border-radius: 6px;
+  background: transparent;
+}
+img.pr-vignette { border: 1px solid var(--trait); }
+/* L'emplacement vide n'est qu'une cale d'alignement : ni cadre, ni fond. */
+span.pr-vignette { border: none; }
 
 .pr-talents { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 24px; }
 .pr-talents li { break-inside: avoid; padding-left: 18px; position: relative; }

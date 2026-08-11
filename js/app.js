@@ -309,6 +309,8 @@ function imageDe(c, cible, cle, index) {
     case 'talent-custom': return (c.talentsCustom[index] || {}).imageId || null;
     case 'qualite': return c.imagesQualites[cle] || null;
     case 'qualite-custom': return (c.qualitesCustom[index] || {}).imageId || null;
+    case 'sort': return (c.grimoire[index] || {}).imageId || null;
+    case 'objet': return (c.sac[index] || {}).imageId || null;
     default: return null;
   }
 }
@@ -330,12 +332,20 @@ function definirImage(c, cible, cle, index, imageId) {
     case 'qualite-custom':
       if (c.qualitesCustom[index]) c.qualitesCustom[index].imageId = imageId;
       break;
+    case 'sort':
+      if (c.grimoire[index]) c.grimoire[index].imageId = imageId;
+      break;
+    case 'objet':
+      if (c.sac[index]) c.sac[index].imageId = imageId;
+      break;
   }
 }
 
 /** Quelle section redessiner après avoir changé une image. */
 function sectionDe(cible) {
   if (cible === 'portrait') return 'portrait';
+  if (cible === 'sort') return 'grimoire';
+  if (cible === 'objet') return 'sac';
   return cible.startsWith('qualite') ? 'qualites' : 'talents';
 }
 
@@ -403,6 +413,15 @@ function ligneQualite(nom, valeur, chemin, opts = {}) {
         <div class="qualite-bas">${stepper}${boutonIllustrer(opts, true)}</div>
       </div>
     </li>`;
+}
+
+/** Vignette d'une ligne de liste : l'image si elle existe, sinon le bouton. */
+function vignetteLigne(imageId, cible, index) {
+  if (!imageId) return boutonIllustrer({ cible, index });
+  return `<button type="button" class="illustration illustration-ligne"
+    data-action="illustrer" data-cible="${esc(cible)}" data-index="${index}" title="Changer l’image">
+    <img data-image="${esc(imageId)}" alt="">
+  </button>`;
 }
 
 /** Bouton d'attache d'image, discret tant qu'il n'y a rien à montrer. */
@@ -512,6 +531,7 @@ function sectionGrimoire(c) {
                 <input class="ligne-titre" type="text" data-champ="grimoire.${i}.nom" value="${esc(s.nom)}" placeholder="Nom du sort">
                 <textarea rows="2" data-champ="grimoire.${i}.effet" placeholder="Effet, coût, limites…">${esc(s.effet)}</textarea>
               </div>
+              ${vignetteLigne(s.imageId, 'sort', i)}
               <button type="button" class="btn-icone danger" data-action="retirer-sort" data-index="${i}" title="Retirer">✕</button>
             </li>`).join('')}
         </ul>`}
@@ -537,6 +557,7 @@ function sectionSac(c) {
                 </div>
                 <input class="ligne-note" type="text" data-champ="sac.${i}.notes" value="${esc(o.notes)}" placeholder="Note (facultatif)">
               </div>
+              ${vignetteLigne(o.imageId, 'objet', i)}
               <button type="button" class="btn-icone danger" data-action="retirer-objet" data-index="${i}" title="Retirer">✕</button>
             </li>`).join('')}
         </ul>`}
@@ -734,12 +755,43 @@ function vuePortraits() {
 /* ------------------------------------------------------------------ */
 
 function vueImpression(c) {
-  const talentsCoches = [
-    ...[...TALENTS_GAUCHE, ...TALENTS_DROITE].filter((t) => c.talents[t]),
-    ...c.talentsCustom.filter((t) => t.coche).map((t) => t.nom),
+  const talents = [
+    ...[...TALENTS_GAUCHE, ...TALENTS_DROITE]
+      .filter((t) => c.talents[t])
+      .map((t) => ({ nom: t, imageId: c.imagesTalents[t] || null })),
+    ...c.talentsCustom
+      .filter((t) => t.coche)
+      .map((t) => ({ nom: t.nom, imageId: t.imageId || null })),
   ];
-  const ligne = (label, valeur) => valeur
-    ? `<p class="pr-champ"><span class="pr-label">${esc(label)}</span> ${esc(valeur)}</p>` : '';
+  const sorts = c.grimoire.map((s) => ({ nom: s.nom, texte: s.effet, imageId: s.imageId || null }));
+  const objets = c.sac.map((o) => ({
+    nom: ((o.qte || 1) > 1 ? o.qte + ' × ' : '') + o.nom,
+    texte: o.notes,
+    imageId: o.imageId || null,
+  }));
+
+  const champ = (label, valeur) => (valeur
+    ? `<p class="pr-champ"><b>${esc(label)} :</b> ${esc(valeur)}</p>` : '');
+
+  /* La colonne d'images n'existe que si au moins une entrée en a une :
+     sans illustration, la liste reste alignée à gauche. */
+  const liste = (entrees) => {
+    const illustree = entrees.some((e) => e.imageId);
+    return `<ul class="pr-entrees ${illustree ? 'pr-entrees-illustrees' : ''}">
+      ${entrees.map((e) => `
+        <li>
+          ${illustree
+            ? (e.imageId
+              ? `<img class="pr-vignette" data-image="${esc(e.imageId)}" alt="">`
+              : '<span class="pr-vignette"></span>')
+            : ''}
+          <p><b>${esc(e.nom)}</b>${e.texte ? ' — ' + esc(e.texte) : ''}</p>
+        </li>`).join('')}
+    </ul>`;
+  };
+
+  const bloc = (titre, contenu) => `
+    <section class="pr-bloc"><h2>${esc(titre)}</h2>${contenu}</section>`;
 
   app.innerHTML = `
     <header class="barre sans-impression">
@@ -748,64 +800,37 @@ function vueImpression(c) {
     </header>
 
     <article class="feuille">
-      <div class="pr-entete">
-        ${c.portraitId ? `<img class="pr-portrait" data-image="${esc(c.portraitId)}" alt="">` : ''}
-        <div>
+      <div class="pr-tete">
+        ${c.portraitId
+          ? `<img class="pr-portrait" data-image="${esc(c.portraitId)}" alt="">`
+          : '<span class="pr-portrait pr-portrait-vide"></span>'}
+        <div class="pr-identite">
           <h1 class="pr-nom">${esc(c.nom || 'Chaton sans nom')}</h1>
-          <p class="pr-sous">Niveau ${c.experience.niveau || 1}${c.joueuse ? ' · ' + esc(c.joueuse) : ''}</p>
+          <p class="pr-sous">Niveau ${c.experience.niveau || 1}${c.joueuse ? ' — ' + esc(c.joueuse) : ''}</p>
+          <h2 class="pr-titre-qualites">Qualités</h2>
+          <ul class="pr-qualites">
+            ${QUALITES.map((q) => `<li><span>${esc(q.nom)}</span><b>${c.qualites[q.id] || 0}</b></li>`).join('')}
+            ${c.qualitesCustom.filter((q) => q.nom).map((q) => `<li><span>${esc(q.nom)}</span><b>${q.valeur || 0}</b></li>`).join('')}
+          </ul>
         </div>
       </div>
 
-      <div class="pr-colonnes">
-        <section class="pr-bloc">
-          <h2>Le Chaton</h2>
-          ${ligne('Histoire :', c.enfance)}
-          ${ligne('Caractère :', c.caractere)}
-          ${ligne('Don de naissance :', c.donNaissance)}
-        </section>
-
-        <section class="pr-bloc">
-          <h2>Qualités</h2>
-          <ul class="pr-qualites">
-            ${QUALITES.map((q) => `<li><span>${esc(q.nom)}</span><b>${c.qualites[q.id] || 0}</b></li>`).join('')}
-            ${c.qualitesCustom.map((q) => `<li><span>${esc(q.nom)}</span><b>${q.valeur || 0}</b></li>`).join('')}
-          </ul>
-        </section>
+      <div class="pr-details">
+        ${champ('Histoire', c.enfance)}
+        ${champ('Caractère', c.caractere)}
+        ${champ('Don de naissance', c.donNaissance)}
       </div>
 
-      <section class="pr-bloc">
-        <h2>Talents</h2>
-        ${talentsCoches.length
-          ? `<ul class="pr-talents">${talentsCoches.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`
-          : '<p class="pr-vide">Aucun talent coché.</p>'}
-      </section>
+      ${talents.length ? bloc('Talents', liste(talents)) : ''}
+      ${sorts.length ? bloc('Grimoire', liste(sorts)) : ''}
+      ${objets.length ? bloc('Sac de voyage', liste(objets)) : ''}
 
-      ${c.grimoire.length ? `
-        <section class="pr-bloc">
-          <h2>Grimoire</h2>
-          <ul class="pr-liste">
-            ${c.grimoire.map((s) => `<li><b>${esc(s.nom)}</b>${s.effet ? ' — ' + esc(s.effet) : ''}</li>`).join('')}
-          </ul>
-        </section>` : ''}
+      ${c.progression.length ? bloc('Progression', `
+        <ul class="pr-liste">
+          ${c.progression.map((p) => `<li>${p.date ? '<b>' + esc(dateFR(p.date)) + '</b> — ' : ''}${esc(p.texte)}</li>`).join('')}
+        </ul>`) : ''}
 
-      ${c.sac.length ? `
-        <section class="pr-bloc">
-          <h2>Sac de voyage</h2>
-          <ul class="pr-liste">
-            ${c.sac.map((o) => `<li>${(o.qte || 1) > 1 ? esc(o.qte) + ' × ' : ''}${esc(o.nom)}${o.notes ? ' (' + esc(o.notes) + ')' : ''}</li>`).join('')}
-          </ul>
-        </section>` : ''}
-
-      ${c.progression.length ? `
-        <section class="pr-bloc">
-          <h2>Progression</h2>
-          <ul class="pr-liste">
-            ${c.progression.map((p) => `<li>${p.date ? '<b>' + esc(dateFR(p.date)) + '</b> — ' : ''}${esc(p.texte)}</li>`).join('')}
-          </ul>
-        </section>` : ''}
-
-      ${c.notes ? `<section class="pr-bloc"><h2>Notes</h2><p>${esc(c.notes)}</p></section>` : ''}
-
+      ${c.notes ? bloc('Notes', `<p>${esc(c.notes)}</p>`) : ''}
     </article>
   `;
   peindreImages();
