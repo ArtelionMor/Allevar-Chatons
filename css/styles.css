@@ -318,6 +318,26 @@ input:focus, textarea:focus {
 
 /* --- Qualités / steppers --- */
 
+/* Points de vie : détachés des Qualités, c'est le chiffre qu'on touche
+   le plus souvent en combat. */
+.points-vie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--parchemin-fonce);
+}
+.pv-nom { flex: 1; font-family: var(--serif); font-size: 1.02rem; min-width: 0; }
+.pv-sur { color: var(--encre-douce); font-size: .85rem; }
+.pv-max {
+  width: 4.4rem;
+  flex: none;
+  text-align: center;
+  padding: 10px 4px;
+  background: var(--carte);
+}
+
 .qualites { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 
 .qualite {
@@ -860,6 +880,7 @@ body.modale-ouverte { overflow: hidden; }
 }
 .pr-qualites li:last-child { border-bottom: none; }
 .pr-qualites b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.pr-pv { border-bottom: 1px solid var(--trait); padding-bottom: 4px; margin-bottom: 2px; }
 
 /* --- Histoire, caractère, don --- */
 

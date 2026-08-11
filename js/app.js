@@ -368,10 +368,28 @@ function sectionQualites(c) {
   return `
     <section class="bloc">
       <h2>Qualités</h2>
+      ${lignePointsDeVie(c)}
       <ul class="qualites">${lignes.join('')}</ul>
       <button class="btn btn-ajout" data-action="ajouter-qualite">+ Qualité personnalisée</button>
     </section>
   `;
+}
+
+/** Points de vie : un compteur courant, et un maximum qu'on fixe une fois. */
+function lignePointsDeVie(c) {
+  const pv = c.pointsDeVie || { actuel: 0, max: 0 };
+  return `
+    <div class="points-vie">
+      <span class="pv-nom">Points de vie</span>
+      <span class="stepper">
+        <button type="button" class="btn-step" data-action="qualite-moins" data-chemin="pointsDeVie.actuel" aria-label="Diminuer">−</button>
+        <span class="stepper-valeur" data-valeur="pointsDeVie.actuel">${pv.actuel || 0}</span>
+        <button type="button" class="btn-step" data-action="qualite-plus" data-chemin="pointsDeVie.actuel" aria-label="Augmenter">+</button>
+      </span>
+      <span class="pv-sur">sur</span>
+      <input class="pv-max" type="number" min="0" step="1" data-champ-nombre="pointsDeVie.max"
+             value="${pv.max || 0}" aria-label="Points de vie maximum">
+    </div>`;
 }
 
 /** Une qualité illustrée devient une carte ; sans image, elle reste une ligne. */
@@ -821,6 +839,9 @@ function vueImpression(c) {
           <p class="pr-sous">Niveau ${c.experience.niveau || 1}${c.joueuse ? ' — ' + esc(c.joueuse) : ''}</p>
           <h2 class="pr-titre-qualites">Qualités</h2>
           <ul class="pr-qualites">
+            ${(c.pointsDeVie && c.pointsDeVie.max)
+              ? `<li class="pr-pv"><span>Points de vie</span><b>${c.pointsDeVie.actuel || 0} / ${c.pointsDeVie.max}</b></li>`
+              : ''}
             ${QUALITES.map((q) => `<li><span>${esc(q.nom)}</span><b>${c.qualites[q.id] || 0}</b></li>`).join('')}
             ${c.qualitesCustom.filter((q) => q.nom).map((q) => `<li><span>${esc(q.nom)}</span><b>${q.valeur || 0}</b></li>`).join('')}
           </ul>
@@ -879,7 +900,8 @@ app.addEventListener('input', (e) => {
     if (el.tagName === 'TEXTAREA') autoTaille(el);
     Store.sauverBientot(c);
   } else if (el.dataset.champNombre && c) {
-    Store.setChemin(c, el.dataset.champNombre, Math.max(1, parseInt(el.value, 10) || 1));
+    const minimum = el.dataset.champNombre.startsWith('pointsDeVie') ? 0 : 1;
+    Store.setChemin(c, el.dataset.champNombre, Math.max(minimum, parseInt(el.value, 10) || minimum));
     Store.sauverBientot(c);
   }
 });
@@ -1056,7 +1078,9 @@ app.addEventListener('click', (e) => {
       const parts = chemin.split('.');
       let val = parts.reduce((o, k) => (o ? o[k] : 0), c) || 0;
       const max = chemin.startsWith('experience.points') ? 9999
-        : chemin.startsWith('experience.niveau') ? 20 : QUALITE_MAX;
+        : chemin.startsWith('experience.niveau') ? 20
+        : chemin === 'pointsDeVie.actuel' ? ((c.pointsDeVie && c.pointsDeVie.max) || 9999)
+        : QUALITE_MAX;
       const min = chemin.startsWith('experience.niveau') ? 1 : 0;
       val = Math.min(max, Math.max(min, val + pas));
       Store.setChemin(c, chemin, val);

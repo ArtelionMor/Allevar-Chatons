@@ -33,6 +33,7 @@ export function chatonVierge(nom = '') {
     imagesTalents: {},            // { "Griffer": imageId } — illustration facultative
     grimoire: [],                 // { id, nom, effet }
     sac: [],                      // { id, nom, qte, notes }
+    pointsDeVie: { actuel: 0, max: 0 },
     experience: { niveau: 1, points: 0 },
     progression: [],              // { id, date, texte }
     notes: '',
@@ -74,6 +75,7 @@ function migrer(c) {
   const fusion = { ...base, ...c };
   fusion.qualites = { ...base.qualites, ...(c.qualites || {}) };
   fusion.experience = { ...base.experience, ...(c.experience || {}) };
+  fusion.pointsDeVie = { ...base.pointsDeVie, ...(c.pointsDeVie || {}) };
   for (const cle of ['qualitesCustom', 'talentsCustom', 'grimoire', 'sac', 'progression']) {
     if (!Array.isArray(fusion[cle])) fusion[cle] = [];
   }
